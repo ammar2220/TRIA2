@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>إدارة الحسابات والمحفظة - V7</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: "Cairo", "Segoe UI", Tahoma, sans-serif;
+    }
+
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --text: #222;
+      --muted: #666;
+      --border: #ddd;
+      --primary: #2563eb;
+      --income: #16a34a;
+      --expense: #dc2626;
+      --warning: #f59e0b;
+      --purple: #7c3aed;
+      --shadow: 0 8px 22px rgba(0,0,0,0.08);
+      --input-bg: #ffffff;
+      --select-bg: #ffffff;
+    }
+
+    body.dark-mode {
+      --bg: #111827;
+      --card: #1f2937;
+      --text: #f9fafb;
+      --muted: #cbd5e1;
+      --border: #374151;
+      --primary: #3b82f6;
+      --income: #22c55e;
+      --expense: #ef4444;
+      --warning: #fbbf24;
+      --purple: #8b5cf6;
+      --shadow: 0 8px 22px rgba(0,0,0,0.35);
+      --input-bg: #111827;
+      --select-bg: #111827;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      transition: 0.3s;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 30px auto;
+      padding: 20px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+    }
+
+    .theme-toggle, .secondary-btn {
+      border: none;
+      background: var(--card);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      font-size: 14px;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 15px;
+    }
+
+    .stat {
+      padding: 18px;
+      border-radius: 14px;
+      color: white;
+    }
+
+    .balance-box { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+    .income-box { background: linear-gradient(135deg, #16a34a, #15803d); }
+    .expense-box { background: linear-gradient(135deg, #dc2626, #b91c1c); }
+    .warning-box { background: linear-gradient(135deg, #f59e0b, #d97706); }
+    .interest-box { background: linear-gradient(135deg, #7c3aed, #5b21b6); }
+
+    .stat small {
+      display: block;
+      opacity: 0.9;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .stat h2 {
+      font-size: 24px;
+    }
+
+    .grid-2, .grid-3, .grid-4, .grid-5 {
+      display: grid;
+      gap: 12px;
+    }
+
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .grid-5 { grid-template-columns: repeat(5, 1fr); }
+
+    input, select, button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      font-size: 14px;
+      background: var(--input-bg);
+      color: var(--text);
+    }
+
+    select {
+      background: var(--select-bg);
+      color: var(--text);
+    }
+
+    select option {
+      background: var(--select-bg);
+      color: var(--text);
+    }
+
+    button {
+      border: none;
+      background: var(--primary);
+      color: white;
+      cursor: pointer;
+    }
+
+    .danger { background: var(--expense); }
+    .warning { background: var(--warning); color: #111; }
+    .purple { background: var(--purple); }
+
+    .inner-tabs {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .inner-tab-btn {
+      width: auto;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: var(--input-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      cursor: pointer;
+    }
+
+    .inner-tab-btn.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: right;
+      font-size: 14px;
+      vertical-align: middle;
+    }
+
+    th {
+      color: var(--muted);
+    }
+
+    .income-text { color: var(--income); font-weight: bold; }
+    .expense-text { color: var(--expense); font-weight: bold; }
+    .muted { color: var(--muted); }
+    .section-title { margin-bottom: 15px; }
+
+    .table-wrap { overflow-x: auto; }
+
+    .row-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .row-actions button {
+      width: auto;
+      padding: 8px 10px;
+      font-size: 12px;
+      border-radius: 8px;
+    }
+
+    .alert {
+      padding: 14px;
+      border-radius: 12px;
+      margin-bottom: 15px;
+      font-weight: bold;
+    }
+
+    .alert-warning {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--warning);
+      border: 1px solid var(--warning);
+    }
+
+    .login-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--card);
+      padding: 24px;
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .small-note {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 10px;
+    }
+
+    .empty-box {
+      text-align: center;
+      padding: 30px;
+      color: var(--muted);
+    }
+
+    canvas {
+      max-height: 320px;
+    }
+
+    @media (max-width: 950px) {
+      .grid-5, .grid-4, .grid-3, .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      .no-print, .row-actions, .theme-toggle, .secondary-btn {
+        display: none !important;
+      }
+      body { background: white; }
+      .card {
+        box-shadow: none;
+        border: 1px solid #ddd;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    const PAGE_NAMES_STATIC = ["Transfers", "Summary", "Reports", "Settings"];
+    const STORAGE_KEY = "wallet_multi_accounts_v7";
+    const THEME_KEY = "wallet_theme_v7";
+    const AUTH_KEY = "wallet_auth_v7";
+
+    let activeTab = "Summary";
+    let activeAccountId = null;
+    let activeInterestInnerTab = "transactions";
+    let chartInstance = null;
+    let isRebuildingInterest = false;
+
+    function todayString() {
+      return formatDate(new Date());
+    }
+
+    function isValidDateString(d) {
+      return /^\d{4}-\d{2}-\d{2}$/.test(d);
+    }
+
+    function parseDate(d) {
+      if (!isValidDateString(d)) return null;
+      const [year, month, day] = d.split("-").map(Number);
+      const date = new Date(year, month - 1, day);
+      if (
+        date.getFullYear() !== year ||
+        date.getMonth() !== month - 1 ||
+        date.getDate() !== day
+      ) return null;
+      return date;
+    }
+
+    function formatDate(dateObj) {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const d = String(dateObj.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function addDays(dateStr, days) {
+      const d = parseDate(dateStr);
+      if (!d) return todayString();
+      d.setDate(d.getDate() + days);
+      return formatDate(d);
+    }
+
+    function compareDateStrings(a, b) {
+      const da = parseDate(a);
+      const db = parseDate(b);
+      if (!da || !db) return 0;
+      if (da < db) return -1;
+      if (da > db) return 1;
+      return 0;
+    }
+
+    function monthString(dateStr) {
+      const d = parseDate(dateStr);
+      if (!d) return null;
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+    }
+
+    function generateId() {
+      return "id_" + Date.now().toString(36) + Math.random().toString(36).slice(2);
+    }
+
+    function createInitialState() {
+      return {
+        settings: {
+          username: "admin",
+          password: "1234"
+        },
+        accounts: []
+      };
+    }
+
+    function sanitizeState(raw) {
+      const base = createInitialState();
+
+      if (!raw || typeof raw !== "object") return base;
+
+      if (raw.settings) {
+        base.settings.username = raw.settings.username || "admin";
+        base.settings.password = raw.settings.password || "1234";
+      }
+
+      if (Array.isArray(raw.accounts)) {
+        base.accounts = raw.accounts.map(acc => ({
+          id: acc.id || generateId(),
+          name: acc.name || "حساب",
+          type: acc.type === "interest" ? "interest" : "normal",
+          initialBalance: Number(acc.initialBalance || 0),
+          lowBalanceAlert: Number(acc.lowBalanceAlert || 100),
+          transactions: Array.isArray(acc.transactions)
+            ? acc.transactions
+                .filter(t => t && isValidDateString(t.date))
+                .map(t => ({
+                  id: t.id || generateId(),
+                  kind: t.kind || "income",
+                  desc: t.desc || "",
+                  amount: Number(t.amount || 0),
+                  date: t.date,
+                  meta: t.meta || {}
+                }))
+                .filter(t => !isNaN(t.amount))
+            : [],
+          interestRates: acc.type === "interest"
+            ? (Array.isArray(acc.interestRates)
+                ? acc.interestRates
+                    .filter(r => r && isValidDateString(r.startDate) && !isNaN(Number(r.rate)))
+                    .map(r => ({ rate: Number(r.rate), startDate: r.startDate }))
+                : [])
+            : []
+        }));
+      }
+
+      return base;
+    }
+
+    async function loadApp() {
+      try {
+        const res = await fetch("/api/data");
+        if (res.ok) {
+          const raw = await res.json();
+          if (raw) return sanitizeState(raw);
+        }
+      } catch (err) {
+        console.error("تعذر تحميل الداتا من السيرفر، هيتم استخدام النسخة المحلية إن وجدت:", err);
+      }
+
+      try {
+        const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        return sanitizeState(raw);
+      } catch {
+        return createInitialState();
+      }
+    }
+
+    let appState = createInitialState();
+
+    async function saveApp() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      try {
+        const res = await fetch("/api/data", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(appState)
+        });
+        if (!res.ok) throw new Error("Save failed with status " + res.status);
+      } catch (err) {
+        console.error("تعذر حفظ الداتا على السيرفر:", err);
+        alert("تنبيه: تعذر حفظ الداتا على السيرفر. الداتا محفوظة مؤقتاً على هذا الجهاز فقط، تأكد من الاتصال بالإنترنت.");
+      }
+    }
+
+    function getAccounts() {
+      return appState.accounts || [];
+    }
+
+    function getAccountById(id) {
+      return getAccounts().find(acc => acc.id === id) || null;
+    }
+
+    function getInterestAccounts() {
+      return getAccounts().filter(acc => acc.type === "interest");
+    }
+
+    function isLoggedIn() {
+      return localStorage.getItem(AUTH_KEY) === "true";
+    }
+
+    function login(username, password) {
+      if (username === appState.settings.username && password === appState.settings.password) {
+        localStorage.setItem(AUTH_KEY, "true");
+        renderApp();
+      } else {
+        alert("اسم المستخدم أو كلمة المرور غير صحيح");
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem(AUTH_KEY);
+      renderApp();
+    }
+
+    function loadTheme() {
+      const theme = localStorage.getItem(THEME_KEY);
+      if (theme === "dark") document.body.classList.add("dark-mode");
+      else document.body.classList.remove("dark-mode");
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle("dark-mode");
+      localStorage.setItem(THEME_KEY, document.body.classList.contains("dark-mode") ? "dark" : "light");
+    }
+
+    function formatCurrency(value) {
+      return new Intl.NumberFormat("ar-EG", {
+        style: "currency",
+        currency: "EGP",
+        minimumFractionDigits: 2
+      }).format(Number(value || 0));
+    }
+
+    function translateKind(kind) {
+      const map = {
+        income: "دخل",
+        expense: "مصروف",
+        transfer_in: "تحويل وارد",
+        transfer_out: "تحويل صادر",
+        interest: "فائدة يومية"
+      };
+      return map[kind] || kind;
+    }
+
+    function translateAccountType(type) {
+      return type === "interest" ? "بعائد يومي" : "عادي";
+    }
+
+    function getInterestRateTimeline(accountId) {
+      const acc = getAccountById(accountId);
+      if (!acc || acc.type !== "interest") return [];
+      return [...(acc.interestRates || [])]
+        .filter(r => isValidDateString(r.startDate) && !isNaN(Number(r.rate)))
+        .sort((a, b) => compareDateStrings(a.startDate, b.startDate));
+    }
+
+    function getEffectiveRateForInterestDay(dayStr, rates) {
+      let effective = null;
+      for (const r of rates) {
+        const effectiveFrom = addDays(r.startDate, 1);
+        if (compareDateStrings(dayStr, effectiveFrom) >= 0) {
+          effective = r;
+        } else {
+          break;
+        }
+      }
+      return effective;
+    }
+
+    function rebuildInterestForAccount(accountId) {
+      if (isRebuildingInterest) return;
+      isRebuildingInterest = true;
+
+      try {
+        const acc = getAccountById(accountId);
+        if (!acc || acc.type !== "interest") return;
+
+        const nonInterestTransactions = acc.transactions
+          .filter(t => t.kind !== "interest" && isValidDateString(t.date) && !isNaN(Number(t.amount)))
+          .sort((a, b) => compareDateStrings(a.date, b.date));
+
+        acc.transactions = [...nonInterestTransactions];
+
+        const rates = getInterestRateTimeline(accountId);
+        if (!rates.length) {
+          saveApp();
+          return;
+        }
+
+        const firstRateDate = rates[0]?.startDate;
+        if (!isValidDateString(firstRateDate)) {
+          saveApp();
+          return;
+        }
+
+        const txMap = {};
+        for (const tx of nonInterestTransactions) {
+          if (!txMap[tx.date]) txMap[tx.date] = [];
+          txMap[tx.date].push(tx);
+        }
+
+        const todayObj = parseDate(todayString());
+        let currentDateObj = parseDate(addDays(firstRateDate, 1));
+        if (!todayObj || !currentDateObj) {
+          saveApp();
+          return;
+        }
+
+        let runningBalance = Number(acc.initialBalance || 0);
+
+        const firstInterestDay = formatDate(currentDateObj);
+        const historicalTransactions = nonInterestTransactions.filter(
+          t => compareDateStrings(t.date, firstInterestDay) < 0
+        );
+
+        for (const t of historicalTransactions) {
+          if (["income", "transfer_in"].includes(t.kind)) runningBalance += Number(t.amount);
+          if (["expense", "transfer_out"].includes(t.kind)) runningBalance -= Number(t.amount);
+        }
+
+        let safetyCounter = 0;
+        const MAX_DAYS = 5000;
+
+        while (currentDateObj <= todayObj) {
+          safetyCounter++;
+          if (safetyCounter > MAX_DAYS) {
+            console.warn("تم إيقاف حساب الفائدة بسبب عدد أيام كبير جدًا");
+            break;
+          }
+
+          const currentDay = formatDate(currentDateObj);
+          const todaysTransactions = txMap[currentDay] || [];
+
+          for (const t of todaysTransactions) {
+            if (["income", "transfer_in"].includes(t.kind)) runningBalance += Number(t.amount);
+            if (["expense", "transfer_out"].includes(t.kind)) runningBalance -= Number(t.amount);
+          }
+
+          const rateObj = getEffectiveRateForInterestDay(currentDay, rates);
+
+          if (rateObj && runningBalance > 0) {
+            const balanceBefore = Number(runningBalance.toFixed(2));
+            const dailyRate = Number(rateObj.rate) / 100 / 365;
+            const interestAmount = Number((balanceBefore * dailyRate).toFixed(2));
+
+            if (interestAmount > 0) {
+              runningBalance = Number((runningBalance + interestAmount).toFixed(2));
+
+              acc.transactions.push({
+                id: generateId(),
+                kind: "interest",
+                desc: `فائدة يومية (${rateObj.rate}%)`,
+                amount: interestAmount,
+                date: currentDay,
+                meta: {
+                  rate: Number(rateObj.rate),
+                  basedOnStartDate: rateObj.startDate,
+                  balanceBefore,
+                  balanceAfter: runningBalance
+                }
+              });
+            }
+          }
+
+          currentDateObj.setDate(currentDateObj.getDate() + 1);
+        }
+
+        acc.transactions.sort((a, b) => compareDateStrings(a.date, b.date));
+        saveApp();
+      } catch (err) {
+        console.error("Interest rebuild error:", err);
+      } finally {
+        isRebuildingInterest = false;
+      }
+    }
+
+    function rebuildAllInterestAccounts() {
+      getInterestAccounts().forEach(acc => rebuildInterestForAccount(acc.id));
+    }
+
+    function getAccountBalance(accountId) {
+      const acc = getAccountById(accountId);
+      if (!acc) return 0;
+
+      let total = Number(acc.initialBalance || 0);
+
+      acc.transactions.forEach(t => {
+        if (["income", "interest", "transfer_in"].includes(t.kind)) total += Number(t.amount);
+        if (["expense", "transfer_out"].includes(t.kind)) total -= Number(t.amount);
+      });
+
+      return Number(total.toFixed(2));
+    }
+
+    function getAccountIncome(accountId) {
+      const acc = getAccountById(accountId);
+      if (!acc) return 0;
+      return acc.transactions
+        .filter(t => ["income", "interest"].includes(t.kind))
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+    }
+
+    function getAccountExpense(accountId) {
+      const acc = getAccountById(accountId);
+      if (!acc) return 0;
+      return acc.transactions
+        .filter(t => t.kind === "expense")
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+    }
+
+    function getAccountTransfers(accountId) {
+      const acc = getAccountById(accountId);
+      if (!acc) return [];
+      return acc.transactions.filter(t => ["transfer_in", "transfer_out"].includes(t.kind));
+    }
+
+    function filterTransactions(transactions, fromDate, toDate) {
+      return transactions.filter(t => {
+        if (fromDate && compareDateStrings(t.date, fromDate) < 0) return false;
+        if (toDate && compareDateStrings(t.date, toDate) > 0) return false;
+        return true;
+      });
+    }
+
+    function getAllTransactions(accountId) {
+      const acc = getAccountById(accountId);
+      if (!acc) return [];
+      return [...acc.transactions]
+        .filter(t => isValidDateString(t.date))
+        .sort((a, b) => compareDateStrings(b.date, a.date));
+    }
+
+    function getEndOfMonthBalance(accountId, month) {
+      const acc = getAccountById(accountId);
+      if (!acc) return 0;
+
+      let total = Number(acc.initialBalance || 0);
+
+      const txs = [...acc.transactions]
+        .filter(t => {
+          const m = monthString(t.date);
+          return m && m <= month;
+        })
+        .sort((a, b) => compareDateStrings(a.date, b.date));
+
+      txs.forEach(t => {
+        if (["income", "interest", "transfer_in"].includes(t.kind)) total += Number(t.amount);
+        if (["expense", "transfer_out"].includes(t.kind)) total -= Number(t.amount);
+      });
+
+      return Number(total.toFixed(2));
+    }
+
+    function renderLogin() {
+      document.getElementById("app").innerHTML = `
+        <div class="login-screen">
+          <div class="login-card">
+            <h2 style="margin-bottom:15px;">تسجيل الدخول</h2>
+            <div class="grid-2">
+              <input id="loginUsername" placeholder="اسم المستخدم" value="admin" />
+              <input id="loginPassword" placeholder="كلمة المرور" type="password" value="1234" />
+            </div>
+            <div style="margin-top:15px;">
+              <button onclick="handleLogin()">دخول</button>
+            </div>
+            <div class="small-note">بيانات افتراضية: admin / 1234</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function handleLogin() {
+      const u = document.getElementById("loginUsername").value.trim();
+      const p = document.getElementById("loginPassword").value.trim();
+      login(u, p);
+    }
+
+    function getPageOptions() {
+      const accountOptions = getAccounts().map(acc => ({
+        value: `account:${acc.id}`,
+        label: acc.name
+      }));
+
+      const staticOptions = PAGE_NAMES_STATIC.map(name => ({
+        value: `page:${name}`,
+        label: name
+      }));
+
+      return [...accountOptions, ...staticOptions];
+    }
+
+    function switchTab(value) {
+      if (value.startsWith("account:")) {
+        activeAccountId = value.replace("account:", "");
+        activeTab = "account";
+      } else if (value.startsWith("page:")) {
+        activeAccountId = null;
+        activeTab = value.replace("page:", "");
+      }
+      renderMain();
+    }
+
+    function getCurrentDropdownValue() {
+      if (activeTab === "account" && activeAccountId) {
+        return `account:${activeAccountId}`;
+      }
+      return `page:${activeTab}`;
+    }
+
+    function setInterestInnerTab(tab) {
+      activeInterestInnerTab = tab;
+      renderMain();
+    }
+
+    function renderSelector() {
+      const options = getPageOptions();
+      return `
+        <div class="card no-print">
+          <div class="grid-2">
+            <div>
+              <label class="muted">اختار الصفحة / الحساب</label>
+              <select onchange="switchTab(this.value)">
+                ${options.map(opt => `
+                  <option value="${opt.value}" ${getCurrentDropdownValue() === opt.value ? "selected" : ""}>
+                    ${opt.label}
+                  </option>
+                `).join("")}
+              </select>
+            </div>
+            <div style="display:flex;align-items:end;gap:10px;">
+              <button class="theme-toggle" onclick="toggleTheme()">🌙 / ☀️</button>
+              <button class="secondary-btn" onclick="logout()">Logout</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderNoAccountsMessage() {
+      return `
+        <div class="card">
+          <div class="empty-box">
+            <h3 style="margin-bottom:10px;">لا توجد حسابات حتى الآن</h3>
+            <p>اذهب إلى Settings ثم أضف أول حساب.</p>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderLowBalanceAlert(accountId) {
+      const acc = getAccountById(accountId);
+      if (!acc) return "";
+      const balance = getAccountBalance(accountId);
+      if (balance <= Number(acc.lowBalanceAlert || 0)) {
+        return `<div class="alert alert-warning">⚠️ تنبيه: رصيد حساب ${acc.name} منخفض (${formatCurrency(balance)})</div>`;
+      }
+      return "";
+    }
+
+    function renderInterestManager(accountId) {
+      const acc = getAccountById(accountId);
+      const rates = getInterestRateTimeline(accountId);
+      const totalInterest = acc.transactions
+        .filter(t => t.kind === "interest")
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+
+      return `
+        <div class="card">
+          <h3 class="section-title">إدارة الفائدة - ${acc.name}</h3>
+
+          <div class="summary-grid" style="margin-bottom:15px;">
+            <div class="stat interest-box">
+              <small>إجمالي الفائدة المضافة</small>
+              <h2>${formatCurrency(totalInterest)}</h2>
+            </div>
+          </div>
+
+          <div class="grid-3 no-print">
+            <input type="number" id="newInterestRate" placeholder="الفائدة السنوية %" step="0.01" />
+            <input type="date" id="newInterestDate" value="${todayString()}" />
+            <button onclick="addInterestRate('${accountId}')">إضافة / تحديث الفائدة</button>
+          </div>
+
+          <div style="margin-top:12px;" class="no-print">
+            <button class="purple" onclick="rebuildInterestAndRefresh('${accountId}')">إعادة حساب الفائدة بالكامل</button>
+          </div>
+
+          <div class="small-note">أي rate بتاريخ معين يبدأ تطبيقه الفعلي من اليوم التالي له.</div>
+
+          <div class="table-wrap" style="margin-top:15px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>تاريخ تسجيل الإعداد</th>
+                  <th>يبدأ التطبيق الفعلي من</th>
+                  <th>الفائدة السنوية</th>
+                  <th>إجراءات</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  rates.length
+                    ? rates.map((r, i) => `
+                      <tr>
+                        <td>${r.startDate}</td>
+                        <td>${addDays(r.startDate, 1)}</td>
+                        <td>${r.rate}%</td>
+                        <td>
+                          <div class="row-actions no-print">
+                            <button class="danger" onclick="deleteInterestRate('${accountId}', ${i})">حذف</button>
+                          </div>
+                        </td>
+                      </tr>
+                    `).join("")
+                    : `<tr><td colspan="4" class="muted">لا توجد إعدادات فائدة حتى الآن.</td></tr>`
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderAccountTab(accountId) {
+      const acc = getAccountById(accountId);
+      if (!acc) return renderNoAccountsMessage();
+
+      const balance = getAccountBalance(accountId);
+      const income = getAccountIncome(accountId);
+      const expense = getAccountExpense(accountId);
+
+      const innerTabs = acc.type === "interest" ? `
+        <div class="inner-tabs no-print">
+          <button class="inner-tab-btn ${activeInterestInnerTab === "transactions" ? "active" : ""}" onclick="setInterestInnerTab('transactions')">العمليات</button>
+          <button class="inner-tab-btn ${activeInterestInnerTab === "transfers" ? "active" : ""}" onclick="setInterestInnerTab('transfers')">التحويلات</button>
+          <button class="inner-tab-btn ${activeInterestInnerTab === "interest" ? "active" : ""}" onclick="setInterestInnerTab('interest')">سجل الفائدة</button>
+        </div>
+      ` : "";
+
+      return `
+        ${renderLowBalanceAlert(accountId)}
+
+        <div class="card">
+          <h2 class="section-title">${acc.name}</h2>
+          <div class="summary-grid">
+            <div class="stat balance-box">
+              <small>الرصيد الحالي</small>
+              <h2>${formatCurrency(balance)}</h2>
+            </div>
+            <div class="stat income-box">
+              <small>إجمالي الدخل</small>
+              <h2>${formatCurrency(income)}</h2>
+            </div>
+            <div class="stat expense-box">
+              <small>إجمالي المصروف</small>
+              <h2>${formatCurrency(expense)}</h2>
+            </div>
+            <div class="stat warning-box">
+              <small>الرصيد الافتتاحي</small>
+              <h2>${formatCurrency(acc.initialBalance || 0)}</h2>
+            </div>
+          </div>
+        </div>
+
+        ${acc.type === "interest" ? renderInterestManager(accountId) : ""}
+
+        <div class="card no-print">
+          <h3 class="section-title">إضافة عملية</h3>
+          <div class="grid-5">
+            <input type="text" id="descInput" placeholder="الوصف" />
+            <input type="number" id="amountInput" placeholder="المبلغ بالجنيه" step="0.01" />
+            <select id="typeInput">
+              <option value="income">دخل</option>
+              <option value="expense">مصروف</option>
+            </select>
+            <input type="date" id="dateInput" value="${todayString()}" />
+            <button onclick="addTransaction('${accountId}')">إضافة العملية</button>
+          </div>
+        </div>
+
+        <div class="card no-print">
+          <h3 class="section-title">فلترة العمليات</h3>
+          <div class="grid-4">
+            <input type="date" id="filterFrom" />
+            <input type="date" id="filterTo" />
+            <button onclick="renderMain()">تطبيق الفلترة</button>
+            <button class="warning" onclick="clearFilters()">مسح الفلاتر</button>
+          </div>
+        </div>
+
+        ${innerTabs}
+
+        ${
+          acc.type === "interest"
+            ? (
+                activeInterestInnerTab === "transactions"
+                  ? `<div class="card"><h3 class="section-title">سجل العمليات</h3>${renderTransactionsTable(accountId)}</div>`
+                  : activeInterestInnerTab === "transfers"
+                  ? `<div class="card"><h3 class="section-title">التحويلات</h3>${renderTransfersTable(accountId)}</div>`
+                  : `<div class="card"><h3 class="section-title">سجل الفائدة اليومية</h3>${renderInterestTable(accountId)}</div>`
+              )
+            : `
+              <div class="card">
+                <h3 class="section-title">سجل العمليات</h3>
+                ${renderTransactionsTable(accountId)}
+              </div>
+              <div class="card">
+                <h3 class="section-title">التحويلات</h3>
+                ${renderTransfersTable(accountId)}
+              </div>
+            `
+        }
+      `;
+    }
+
+    function clearFilters() {
+      const from = document.getElementById("filterFrom");
+      const to = document.getElementById("filterTo");
+      if (from) from.value = "";
+      if (to) to.value = "";
+      renderMain();
+    }
+
+    function renderTransactionsTable(accountId) {
+      const fromDate = document.getElementById("filterFrom")?.value || "";
+      const toDate = document.getElementById("filterTo")?.value || "";
+
+      let transactions = getAllTransactions(accountId)
+        .filter(t => !["transfer_in", "transfer_out", "interest"].includes(t.kind));
+      transactions = filterTransactions(transactions, fromDate, toDate);
+
+      if (!transactions.length) return `<p class="muted">لا توجد عمليات.</p>`;
+
+      return `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>الوصف</th>
+                <th>النوع</th>
+                <th>المبلغ</th>
+                <th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${transactions.map(t => `
+                <tr>
+                  <td>${t.date}</td>
+                  <td>${t.desc}</td>
+                  <td>${translateKind(t.kind)}</td>
+                  <td class="${t.kind === "income" ? "income-text" : "expense-text"}">${formatCurrency(t.amount)}</td>
+                  <td>
+                    <div class="row-actions no-print">
+                      <button onclick="editTransaction('${accountId}','${t.id}')">تعديل</button>
+                      <button class="danger" onclick="deleteTransaction('${accountId}','${t.id}')">حذف</button>
+                    </div>
+                  </td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderTransfersTable(accountId) {
+      const transfers = getAccountTransfers(accountId);
+      if (!transfers.length) return `<p class="muted">لا توجد تحويلات.</p>`;
+
+      return `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>الوصف</th>
+                <th>النوع</th>
+                <th>المبلغ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${[...transfers].sort((a, b) => compareDateStrings(b.date, a.date)).map(t => `
+                <tr>
+                  <td>${t.date}</td>
+                  <td>${t.desc}</td>
+                  <td>${translateKind(t.kind)}</td>
+                  <td class="${t.kind === "transfer_in" ? "income-text" : "expense-text"}">${formatCurrency(t.amount)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderInterestTable(accountId) {
+      const fromDate = document.getElementById("filterFrom")?.value || "";
+      const toDate = document.getElementById("filterTo")?.value || "";
+
+      let interests = getAllTransactions(accountId).filter(t => t.kind === "interest");
+      interests = filterTransactions(interests, fromDate, toDate);
+
+      if (!interests.length) return `<p class="muted">لا توجد فوائد مطبقة.</p>`;
+
+      return `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>اليوم</th>
+                <th>الرصيد قبل الفايدة</th>
+                <th>الفايدة السنوية</th>
+                <th>قيمة الفايدة اليومية</th>
+                <th>الرصيد بعد الفايدة</th>
+                <th>مصدر الإعداد</th>
+                <th>إجراء</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${interests.map(t => `
+                <tr>
+                  <td>${t.date}</td>
+                  <td>${formatCurrency(t.meta?.balanceBefore || 0)}</td>
+                  <td>${t.meta?.rate ?? "-"}%</td>
+                  <td class="income-text">${formatCurrency(t.amount)}</td>
+                  <td>${formatCurrency(t.meta?.balanceAfter || 0)}</td>
+                  <td>${t.meta?.basedOnStartDate || "-"}</td>
+                  <td>
+                    <div class="row-actions no-print">
+                      <button class="danger" onclick="deleteTransaction('${accountId}','${t.id}')">حذف</button>
+                    </div>
+                  </td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function addTransaction(accountId) {
+      const acc = getAccountById(accountId);
+      if (!acc) return;
+
+      const desc = document.getElementById("descInput").value.trim();
+      const amount = parseFloat(document.getElementById("amountInput").value);
+      const type = document.getElementById("typeInput").value;
+      const date = document.getElementById("dateInput").value || todayString();
+
+      if (!desc || isNaN(amount) || amount <= 0 || !isValidDateString(date)) {
+        alert("من فضلك أدخل بيانات صحيحة");
+        return;
+      }
+
+      acc.transactions.push({
+        id: generateId(),
+        kind: type,
+        desc,
+        amount: Number(amount),
+        date
+      });
+
+      if (acc.type === "interest") rebuildInterestForAccount(accountId);
+      else saveApp();
+
+      renderMain();
+    }
+
+    function editTransaction(accountId, id) {
+      const acc = getAccountById(accountId);
+      if (!acc) return;
+
+      const tx = acc.transactions.find(t => t.id === id);
+      if (!tx) return;
+
+      const newDesc = prompt("تعديل الوصف", tx.desc);
+      if (newDesc === null) return;
+
+      const newAmount = prompt("تعديل المبلغ", tx.amount);
+      if (newAmount === null) return;
+
+      const parsedAmount = parseFloat(newAmount);
+      if (!newDesc.trim() || isNaN(parsedAmount) || parsedAmount <= 0) {
+        alert("بيانات غير صحيحة");
+        return;
+      }
+
+      tx.desc = newDesc.trim();
+      tx.amount = parsedAmount;
+
+      if (acc.type === "interest") rebuildInterestForAccount(accountId);
+      else saveApp();
+
+      renderMain();
+    }
+
+    function deleteTransaction(accountId, id) {
+      const acc = getAccountById(accountId);
+      if (!acc) return;
+
+      if (!confirm("هل أنت متأكد من حذف العملية؟")) return;
+
+      acc.transactions = acc.transactions.filter(t => t.id !== id);
+
+      if (acc.type === "interest") rebuildInterestForAccount(accountId);
+      else saveApp();
+
+      renderMain();
+    }
+
+    function addInterestRate(accountId) {
+      if (isRebuildingInterest) {
+        alert("انتظر حتى تنتهي العملية الحالية");
+        return;
+      }
+
+      const acc = getAccountById(accountId);
+      if (!acc || acc.type !== "interest") return;
+
+      const rate = parseFloat(document.getElementById("newInterestRate").value);
+      const startDate = document.getElementById("newInterestDate").value;
+
+      if (isNaN(rate) || rate < 0) {
+        alert("أدخل فايدة صحيحة");
+        return;
+      }
+
+      if (!isValidDateString(startDate)) {
+        alert("اختر تاريخ صحيح");
+        return;
+      }
+
+      const rates = acc.interestRates || [];
+      const existing = rates.find(r => r.startDate === startDate);
+
+      if (existing) existing.rate = rate;
+      else rates.push({ rate, startDate });
+
+      acc.interestRates = rates.sort((a, b) => compareDateStrings(a.startDate, b.startDate));
+
+      rebuildInterestForAccount(accountId);
+      renderMain();
+    }
+
+    function deleteInterestRate(accountId, index) {
+      const acc = getAccountById(accountId);
+      if (!acc || acc.type !== "interest") return;
+
+      if (!confirm("هل أنت متأكد من حذف إعداد الفائدة؟")) return;
+      if (isRebuildingInterest) return;
+
+      acc.interestRates.splice(index, 1);
+      rebuildInterestForAccount(accountId);
+      renderMain();
+    }
+
+    function rebuildInterestAndRefresh(accountId) {
+      if (isRebuildingInterest) return;
+      rebuildInterestForAccount(accountId);
+      renderMain();
+    }
+
+    function renderTransfersTab() {
+      const accounts = getAccounts();
+
+      if (accounts.length < 2) {
+        return `
+          <div class="card">
+            <div class="empty-box">
+              لازم يكون عندك على الأقل حسابين عشان تعمل تحويل.
+            </div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="card no-print">
+          <h2 class="section-title">تحويل بين الحسابات</h2>
+          <div class="grid-5">
+            <select id="fromAccount">
+              ${accounts.map(acc => `<option value="${acc.id}">${acc.name}</option>`).join("")}
+            </select>
+            <select id="toAccount">
+              ${accounts.map(acc => `<option value="${acc.id}">${acc.name}</option>`).join("")}
+            </select>
+            <input type="number" id="transferAmount" placeholder="المبلغ" step="0.01" />
+            <input type="text" id="transferDesc" placeholder="وصف التحويل" />
+            <button onclick="transferMoney()">تنفيذ التحويل</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function transferMoney() {
+      const fromId = document.getElementById("fromAccount").value;
+      const toId = document.getElementById("toAccount").value;
+      const amount = parseFloat(document.getElementById("transferAmount").value);
+      const desc = document.getElementById("transferDesc").value.trim() || "تحويل بين الحسابات";
+
+      const fromAcc = getAccountById(fromId);
+      const toAcc = getAccountById(toId);
+
+      if (!fromAcc || !toAcc) return;
+
+      if (fromId === toId) return alert("لا يمكن التحويل لنفس الحساب");
+      if (isNaN(amount) || amount <= 0) return alert("أدخل مبلغ صحيح");
+      if (getAccountBalance(fromId) < amount) return alert("الرصيد غير كافٍ");
+
+      fromAcc.transactions.push({
+        id: generateId(),
+        kind: "transfer_out",
+        desc: `${desc} إلى ${toAcc.name}`,
+        amount,
+        date: todayString()
+      });
+
+      toAcc.transactions.push({
+        id: generateId(),
+        kind: "transfer_in",
+        desc: `${desc} من ${fromAcc.name}`,
+        amount,
+        date: todayString()
+      });
+
+      if (fromAcc.type === "interest") rebuildInterestForAccount(fromId);
+      if (toAcc.type === "interest") rebuildInterestForAccount(toId);
+      if (fromAcc.type !== "interest" && toAcc.type !== "interest") saveApp();
+
+      renderMain();
+    }
+
+    function addAccount() {
+      const name = document.getElementById("accountNameInput").value.trim();
+      const type = document.getElementById("accountTypeInput").value;
+
+      if (!name) {
+        alert("أدخل اسم الحساب");
+        return;
+      }
+
+      const exists = getAccounts().some(acc => acc.name.toLowerCase() === name.toLowerCase());
+      if (exists) {
+        alert("يوجد حساب بهذا الاسم بالفعل");
+        return;
+      }
+
+      const newAccount = {
+        id: generateId(),
+        name,
+        type: type === "interest" ? "interest" : "normal",
+        initialBalance: 0,
+        lowBalanceAlert: 100,
+        transactions: [],
+        interestRates: type === "interest" ? [] : []
+      };
+
+      appState.accounts.push(newAccount);
+      saveApp();
+
+      activeTab = "account";
+      activeAccountId = newAccount.id;
+
+      renderMain();
+    }
+
+    function deleteAccount(accountId) {
+      const acc = getAccountById(accountId);
+      if (!acc) return;
+
+      if (!confirm(`هل أنت متأكد من حذف الحساب "${acc.name}" بكل بياناته؟`)) return;
+
+      appState.accounts = appState.accounts.filter(a => a.id !== accountId);
+      saveApp();
+
+      if (activeAccountId === accountId) {
+        activeAccountId = null;
+        activeTab = getAccounts().length ? "account" : "Summary";
+        if (getAccounts().length) activeAccountId = getAccounts()[0].id;
+      }
+
+      renderMain();
+    }
+
+    function renderSummaryTab() {
+      const accounts = getAccounts();
+
+      if (!accounts.length) return renderNoAccountsMessage();
+
+      const totalBalance = accounts.reduce((sum, acc) => sum + getAccountBalance(acc.id), 0);
+      const totalIncome = accounts.reduce((sum, acc) => sum + getAccountIncome(acc.id), 0);
+      const totalExpense = accounts.reduce((sum, acc) => sum + getAccountExpense(acc.id), 0);
+
+      return `
+        <div class="card">
+          <h2 class="section-title">ملخص كل الحسابات</h2>
+          <div class="summary-grid">
+            <div class="stat balance-box"><small>إجمالي الأرصدة</small><h2>${formatCurrency(totalBalance)}</h2></div>
+            <div class="stat income-box"><small>إجمالي الدخل</small><h2>${formatCurrency(totalIncome)}</h2></div>
+            <div class="stat expense-box"><small>إجمالي المصروف</small><h2>${formatCurrency(totalExpense)}</h2></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 class="section-title">تفاصيل الحسابات</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>الحساب</th>
+                  <th>النوع</th>
+                  <th>الرصيد</th>
+                  <th>إجمالي الدخل</th>
+                  <th>إجمالي المصروف</th>
+                  <th>عدد التحويلات</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${accounts.map(acc => `
+                  <tr>
+                    <td>${acc.name}</td>
+                    <td>${translateAccountType(acc.type)}</td>
+                    <td>${formatCurrency(getAccountBalance(acc.id))}</td>
+                    <td class="income-text">${formatCurrency(getAccountIncome(acc.id))}</td>
+                    <td class="expense-text">${formatCurrency(getAccountExpense(acc.id))}</td>
+                    <td>${getAccountTransfers(acc.id).length}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 class="section-title">رسم بياني للأرصدة</h3>
+          <canvas id="balanceChart"></canvas>
+        </div>
+
+        <div class="card no-print">
+          <h3 class="section-title">تصدير البيانات</h3>
+          <div class="grid-2">
+            <button onclick="exportCSV()">Export Excel (CSV)</button>
+            <button class="purple" onclick="window.print()">Export PDF / Print</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderReportsTab() {
+      const accounts = getAccounts();
+      if (!accounts.length) return renderNoAccountsMessage();
+
+      const report = {};
+
+      accounts.forEach(acc => {
+        acc.transactions.forEach(t => {
+          const m = monthString(t.date);
+          if (!m) return;
+          if (!report[m]) report[m] = { income: 0, expense: 0 };
+
+          if (["income", "interest"].includes(t.kind)) report[m].income += Number(t.amount);
+          if (["expense"].includes(t.kind)) report[m].expense += Number(t.amount);
+        });
+      });
+
+      const months = Object.keys(report).sort().reverse();
+
+      return `
+        <div class="card">
+          <h2 class="section-title">التقارير الشهرية</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>الشهر</th>
+                  <th>الرصيد الحالي / آخر الشهر</th>
+                  <th>إجمالي الدخل</th>
+                  <th>إجمالي المصروف</th>
+                  <th>الصافي</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${months.map(month => {
+                  const endBalanceAllAccounts =
+                    accounts.reduce((sum, acc) => sum + getEndOfMonthBalance(acc.id, month), 0);
+                  const income = report[month].income;
+                  const expense = report[month].expense;
+                  const net = income - expense;
+
+                  return `
+                    <tr>
+                      <td>${month}</td>
+                      <td>${formatCurrency(endBalanceAllAccounts)}</td>
+                      <td class="income-text">${formatCurrency(income)}</td>
+                      <td class="expense-text">${formatCurrency(expense)}</td>
+                      <td>${formatCurrency(net)}</td>
+                    </tr>
+                  `;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderSettingsTab() {
+      const accounts = getAccounts();
+
+      return `
+        <div class="card no-print">
+          <h2 class="section-title">إدارة الحسابات</h2>
+          <div class="grid-3">
+            <input id="accountNameInput" placeholder="اسم الحساب" />
+            <select id="accountTypeInput">
+              <option value="normal">عادي</option>
+              <option value="interest">بعائد يومي</option>
+            </select>
+            <button onclick="addAccount()">إضافة حساب</button>
+          </div>
+        </div>
+
+        <div class="card no-print">
+          <h3 class="section-title">الحسابات الحالية</h3>
+          ${
+            accounts.length
+              ? `
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>اسم الحساب</th>
+                        <th>النوع</th>
+                        <th>الرصيد الافتتاحي</th>
+                        <th>حد التنبيه</th>
+                        <th>حذف</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${accounts.map(acc => `
+                        <tr>
+                          <td>${acc.name}</td>
+                          <td>${translateAccountType(acc.type)}</td>
+                          <td><input type="number" id="init_${acc.id}" value="${acc.initialBalance || 0}" step="0.01" /></td>
+                          <td><input type="number" id="alert_${acc.id}" value="${acc.lowBalanceAlert || 0}" step="0.01" /></td>
+                          <td>
+                            <div class="row-actions">
+                              <button class="danger" onclick="deleteAccount('${acc.id}')">حذف</button>
+                            </div>
+                          </td>
+                        </tr>
+                      `).join("")}
+                    </tbody>
+                  </table>
+                </div>
+                <div style="margin-top:12px;">
+                  <button onclick="saveAccountSettings()">حفظ إعدادات الحسابات</button>
+                </div>
+              `
+              : `<div class="empty-box">لا توجد حسابات حتى الآن.</div>`
+          }
+        </div>
+
+        <div class="card no-print">
+          <h2 class="section-title">الإعدادات العامة</h2>
+          <div class="grid-2">
+            <input id="newUsername" placeholder="اسم المستخدم الجديد" value="${appState.settings.username}" />
+            <input id="newPassword" placeholder="كلمة المرور الجديدة" value="${appState.settings.password}" />
+          </div>
+          <div style="margin-top:12px;">
+            <button onclick="saveLoginSettings()">حفظ بيانات الدخول</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function saveAccountSettings() {
+      getAccounts().forEach(acc => {
+        acc.initialBalance = Number(document.getElementById(`init_${acc.id}`)?.value || 0);
+        acc.lowBalanceAlert = Number(document.getElementById(`alert_${acc.id}`)?.value || 0);
+      });
+
+      rebuildAllInterestAccounts();
+      saveApp();
+      renderMain();
+    }
+
+    function saveLoginSettings() {
+      const username = document.getElementById("newUsername").value.trim();
+      const password = document.getElementById("newPassword").value.trim();
+
+      if (!username || !password) {
+        alert("أدخل اسم مستخدم وكلمة مرور");
+        return;
+      }
+
+      appState.settings.username = username;
+      appState.settings.password = password;
+      saveApp();
+      alert("تم حفظ بيانات الدخول");
+    }
+
+    function exportCSV() {
+      const rows = [["Account", "Type", "Date", "Description", "Type", "Amount"]];
+      getAccounts().forEach(acc => {
+        acc.transactions.forEach(t => {
+          rows.push([acc.name, acc.type, t.date, t.desc, t.kind, t.amount]);
+        });
+      });
+
+      const csv = rows
+        .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(","))
+        .join("\n");
+
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "wallet_data_v7.csv";
+      link.click();
+    }
+
+    function renderBalanceChart() {
+      const canvas = document.getElementById("balanceChart");
+      if (!canvas) return;
+
+      const accounts = getAccounts();
+      if (!accounts.length) return;
+
+      if (chartInstance) chartInstance.destroy();
+
+      chartInstance = new Chart(canvas.getContext("2d"), {
+        type: "bar",
+        data: {
+          labels: accounts.map(acc => acc.name),
+          datasets: [{
+            label: "الرصيد الحالي بالجنيه",
+            data: accounts.map(acc => getAccountBalance(acc.id)),
+            backgroundColor: [
+              "#2563eb", "#16a34a", "#7c3aed", "#f59e0b", "#dc2626",
+              "#0ea5e9", "#14b8a6", "#8b5cf6", "#84cc16", "#f97316"
+            ]
+          }]
+        },
+        options: { responsive: true }
+      });
+    }
+
+    function renderMain() {
+      const hasAccounts = getAccounts().length > 0;
+
+      if (!hasAccounts && activeTab === "account") {
+        activeTab = "Summary";
+        activeAccountId = null;
+      }
+
+      document.getElementById("app").innerHTML = `
+        <div class="container">
+          <div class="topbar">
+            <h1>💳 إدارة الحسابات والمحفظة</h1>
+          </div>
+
+          ${renderSelector()}
+
+          ${
+            activeTab === "account"
+              ? renderAccountTab(activeAccountId)
+              : activeTab === "Transfers"
+              ? renderTransfersTab()
+              : activeTab === "Summary"
+              ? renderSummaryTab()
+              : activeTab === "Reports"
+              ? renderReportsTab()
+              : renderSettingsTab()
+          }
+        </div>
+      `;
+
+      if (activeTab === "Summary") {
+        setTimeout(renderBalanceChart, 100);
+      }
+    }
+
+    function renderApp() {
+      loadTheme();
+      if (!isLoggedIn()) renderLogin();
+      else renderMain();
+    }
+
+    function renderLoadingScreen() {
+      document.getElementById("app").innerHTML = `
+        <div class="login-screen">
+          <div class="login-card" style="text-align:center;">
+            <h2>⏳ جاري تحميل الداتا...</h2>
+            <p class="small-note">بيتم تحميل بياناتك من السيرفر، ثانية واحدة.</p>
+          </div>
+        </div>
+      `;
+    }
+
+    async function boot() {
+      loadTheme();
+      renderLoadingScreen();
+      appState = await loadApp();
+      renderApp();
+    }
+
+    boot();
+  </script>
+</body>
+</html>
