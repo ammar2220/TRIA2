@@ -65,6 +65,17 @@
       margin-bottom: 20px;
     }
 
+    .live-clock {
+      background: var(--card);
+      padding: 10px 16px;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      font-size: 14px;
+      font-weight: bold;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
     h1, h2, h3 {
       margin: 0;
     }
@@ -291,15 +302,56 @@
     const STORAGE_KEY = "wallet_multi_accounts_v7";
     const THEME_KEY = "wallet_theme_v7";
     const AUTH_KEY = "wallet_auth_v7";
+    const ARABIC_DAYS = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
     let activeTab = "Summary";
     let activeAccountId = null;
     let activeInterestInnerTab = "transactions";
     let chartInstance = null;
     let isRebuildingInterest = false;
+    let lastKnownDate = null;
+    let clockIntervalId = null;
 
     function todayString() {
       return formatDate(new Date());
+    }
+
+    function getLiveDateTimeString() {
+      const now = new Date();
+      const dayName = ARABIC_DAYS[now.getDay()];
+      const dd = String(now.getDate()).padStart(2, "0");
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const yyyy = now.getFullYear();
+
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, "0");
+      const seconds = String(now.getSeconds()).padStart(2, "0");
+      const ampm = hours >= 12 ? "م" : "ص";
+      hours = hours % 12;
+      if (hours === 0) hours = 12;
+      const hoursStr = String(hours).padStart(2, "0");
+
+      return `${dayName} ${dd}/${mm}/${yyyy} - ${hoursStr}:${minutes}:${seconds} ${ampm}`;
+    }
+
+    function startLiveClock() {
+      if (clockIntervalId) return;
+
+      clockIntervalId = setInterval(() => {
+        const clockEl = document.getElementById("liveClock");
+        if (clockEl) clockEl.textContent = getLiveDateTimeString();
+
+        const currentDay = todayString();
+        if (lastKnownDate !== null && currentDay !== lastKnownDate) {
+          lastKnownDate = currentDay;
+          if (isLoggedIn()) {
+            rebuildAllInterestAccounts();
+            renderMain();
+          }
+        } else if (lastKnownDate === null) {
+          lastKnownDate = currentDay;
+        }
+      }, 1000);
     }
 
     function isValidDateString(d) {
@@ -839,11 +891,7 @@
             <button onclick="addInterestRate('${accountId}')">إضافة / تحديث الفائدة</button>
           </div>
 
-          <div style="margin-top:12px;" class="no-print">
-            <button class="purple" onclick="rebuildInterestAndRefresh('${accountId}')">إعادة حساب الفائدة بالكامل</button>
-          </div>
-
-          <div class="small-note">أي rate بتاريخ معين يبدأ تطبيقه الفعلي من اليوم التالي له.</div>
+          <div class="small-note">الفائدة بتتحدث تلقائياً كل يوم، وكمان فور إضافة/تعديل أي عملية أو معدل فائدة. أي rate بتاريخ معين يبدأ تطبيقه الفعلي من اليوم التالي له.</div>
 
           <div class="table-wrap" style="margin-top:15px;">
             <table>
@@ -1209,12 +1257,6 @@
       if (isRebuildingInterest) return;
 
       acc.interestRates.splice(index, 1);
-      rebuildInterestForAccount(accountId);
-      renderMain();
-    }
-
-    function rebuildInterestAndRefresh(accountId) {
-      if (isRebuildingInterest) return;
       rebuildInterestForAccount(accountId);
       renderMain();
     }
@@ -1614,6 +1656,7 @@
       document.getElementById("app").innerHTML = `
         <div class="container">
           <div class="topbar">
+            <div id="liveClock" class="live-clock">${getLiveDateTimeString()}</div>
             <h1>💳 إدارة الحسابات والمحفظة</h1>
           </div>
 
@@ -1659,7 +1702,10 @@
       loadTheme();
       renderLoadingScreen();
       appState = await loadApp();
+      lastKnownDate = todayString();
+      rebuildAllInterestAccounts();
       renderApp();
+      startLiveClock();
     }
 
     boot();
