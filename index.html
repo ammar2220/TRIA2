@@ -1043,6 +1043,7 @@
         ${adminViewUsername ? renderAdminUserDetails() : ""}
       `;
     }
+    function renderLogin() {
       const isSignup = authMode === "signup";
       document.getElementById("app").innerHTML = `
         <div class="login-screen">
