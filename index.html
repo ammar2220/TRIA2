@@ -322,6 +322,11 @@
     let clockIntervalId = null;
     let currentUsername = null;
     let authMode = "login";
+    let allUsersList = [];
+    let usersListLoaded = false;
+    let usersListLoading = false;
+    let adminViewUsername = null;
+    let adminViewData = null;
 
     function todayString() {
       return formatDate(new Date());
@@ -628,6 +633,10 @@
       renderApp();
     }
 
+    function isAdmin() {
+      return !!currentUsername && currentUsername.toLowerCase() === "admin";
+    }
+
     function logout() {
       localStorage.removeItem(AUTH_KEY);
       currentUsername = null;
@@ -635,6 +644,11 @@
       authMode = "login";
       activeTab = "Summary";
       activeAccountId = null;
+      allUsersList = [];
+      usersListLoaded = false;
+      usersListLoading = false;
+      adminViewUsername = null;
+      adminViewData = null;
       renderApp();
     }
 
@@ -877,7 +891,158 @@
       return Number(total.toFixed(2));
     }
 
-    function renderLogin() {
+    async function loadUsersList() {
+      usersListLoading = true;
+      renderMain();
+      try {
+        const res = await fetch("/api/users");
+        if (res.ok) {
+          allUsersList = await res.json();
+        }
+      } catch (err) {
+        console.error("Failed to load users list:", err);
+      } finally {
+        usersListLoading = false;
+        usersListLoaded = true;
+        renderMain();
+      }
+    }
+
+    function refreshUsersList() {
+      usersListLoaded = false;
+      renderMain();
+    }
+
+    async function viewUserDetails(username) {
+      adminViewUsername = username;
+      adminViewData = null;
+      renderMain();
+      try {
+        const res = await fetch(`/api/data?user=${encodeURIComponent(username)}`);
+        if (res.ok) {
+          const raw = await res.json();
+          adminViewData = sanitizeState(raw);
+        }
+      } catch (err) {
+        console.error("Failed to load user details:", err);
+      }
+      renderMain();
+    }
+
+    function closeUserDetails() {
+      adminViewUsername = null;
+      adminViewData = null;
+      renderMain();
+    }
+
+    function computeAccountBalanceFromData(acc) {
+      let total = Number(acc.initialBalance || 0);
+      acc.transactions.forEach(t => {
+        if (["income", "interest", "transfer_in"].includes(t.kind)) total += Number(t.amount);
+        if (["expense", "transfer_out"].includes(t.kind)) total -= Number(t.amount);
+      });
+      return Number(total.toFixed(2));
+    }
+
+    function renderAdminUserDetails() {
+      if (!adminViewData) {
+        return `<div class="card"><div class="empty-box">Loading ${adminViewUsername}'s data...</div></div>`;
+      }
+
+      const accounts = adminViewData.accounts || [];
+      const totalBalance = accounts.reduce((sum, acc) => sum + computeAccountBalanceFromData(acc), 0);
+
+      return `
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <h3 class="section-title" style="margin-bottom:0;">Details for "${adminViewUsername}"</h3>
+            <button class="secondary-btn" style="width:auto;" onclick="closeUserDetails()">Close</button>
+          </div>
+          <div class="summary-grid" style="margin-top:15px; margin-bottom:15px;">
+            <div class="stat balance-box"><small>Total Balance</small><h2>${formatCurrency(totalBalance)}</h2></div>
+            <div class="stat interest-box"><small>Number of Accounts</small><h2>${accounts.length}</h2></div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Account</th>
+                  <th>Type</th>
+                  <th>Balance</th>
+                  <th>Transactions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  accounts.length
+                    ? accounts.map(acc => `
+                      <tr>
+                        <td>${acc.name}</td>
+                        <td>${translateAccountType(acc.type)}</td>
+                        <td>${formatCurrency(computeAccountBalanceFromData(acc))}</td>
+                        <td>${acc.transactions.length}</td>
+                      </tr>
+                    `).join("")
+                    : `<tr><td colspan="4" class="muted">This user has no accounts yet.</td></tr>`
+                }
+              </tbody>
+            </table>
+          </div>
+          <div class="small-note">Read-only view. This does not affect your own session.</div>
+        </div>
+      `;
+    }
+
+    function renderUsersTab() {
+      if (!isAdmin()) {
+        return `<div class="card"><div class="empty-box">Access denied.</div></div>`;
+      }
+
+      if (!usersListLoaded && !usersListLoading) {
+        loadUsersList();
+        return `<div class="card"><div class="empty-box">Loading users...</div></div>`;
+      }
+
+      if (usersListLoading) {
+        return `<div class="card"><div class="empty-box">Loading users...</div></div>`;
+      }
+
+      return `
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <h2 class="section-title" style="margin-bottom:0;">All Users (${allUsersList.length})</h2>
+            <button class="secondary-btn" style="width:auto;" onclick="refreshUsersList()">Refresh</button>
+          </div>
+          <div class="table-wrap" style="margin-top:15px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  allUsersList.length
+                    ? allUsersList.map(u => `
+                      <tr>
+                        <td>${u}</td>
+                        <td>
+                          <div class="row-actions">
+                            <button onclick="viewUserDetails('${u}')">View Details</button>
+                          </div>
+                        </td>
+                      </tr>
+                    `).join("")
+                    : `<tr><td colspan="2" class="muted">No users found.</td></tr>`
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+        ${adminViewUsername ? renderAdminUserDetails() : ""}
+      `;
+    }
       const isSignup = authMode === "signup";
       document.getElementById("app").innerHTML = `
         <div class="login-screen">
@@ -916,7 +1081,9 @@
         label: name
       }));
 
-      return [...accountOptions, ...staticOptions];
+      const adminOptions = isAdmin() ? [{ value: "page:Users", label: "Users" }] : [];
+
+      return [...accountOptions, ...staticOptions, ...adminOptions];
     }
 
     function switchTab(value) {
@@ -1799,6 +1966,8 @@
               ? renderSummaryTab()
               : activeTab === "Reports"
               ? renderReportsTab()
+              : activeTab === "Users"
+              ? renderUsersTab()
               : renderSettingsTab()
           }
         </div>
